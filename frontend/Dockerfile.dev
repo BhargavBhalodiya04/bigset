@@ -1,11 +1,10 @@
-FROM oven/bun:1-alpine
+FROM oven/bun:latest
 
 WORKDIR /app
 
-COPY --chown=bun:bun package.json bun.lock ./
-USER bun
+COPY package.json bun.lock ./
 RUN bun install
 
-COPY --chown=bun:bun . .
+COPY . .
 
 CMD ["bun", "run", "dev", "--hostname", "0.0.0.0", "--port", "3500"]

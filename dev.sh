@@ -70,6 +70,10 @@ if [ -n "$issuer" ]; then
   docker compose -f docker-compose.dev.yml run --rm frontend bunx convex env set CLERK_JWT_ISSUER_DOMAIN "$issuer" --url http://convex:3210 --admin-key "$admin_key"
 fi
 
+echo "Setting BIGSET_LOCAL_MODE in Convex..."
+docker compose -f docker-compose.dev.yml run --rm frontend bunx convex env set BIGSET_LOCAL_MODE true --url http://convex:3210 --admin-key "$admin_key" || true
+
+
 # 6. Deploy Convex schema and generate code
 echo "Deploying Convex schema and generating client code..."
 docker compose -f docker-compose.dev.yml run --rm frontend bunx convex deploy --url http://convex:3210 --admin-key "$admin_key"

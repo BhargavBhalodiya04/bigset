@@ -35,8 +35,27 @@ export function createLLMProvider() {
 
   const baseURL = normalizeBaseUrl(rawBase);
 
-  return createOpenAI({
+  const openai = createOpenAI({
     apiKey,
     baseURL,
   });
+
+  // Force chat completions API (/v1/chat/completions) by default
+  // instead of the new responses API (/v1/responses) which custom
+  // LLM hubs do not support yet.
+  const wrapper = (modelId: string, settings?: any) => {
+    return openai.chat(modelId, settings);
+  };
+
+  wrapper.chat = (modelId: string, settings?: any) => openai.chat(modelId, settings);
+  wrapper.completion = (modelId: string, settings?: any) => openai.completion(modelId, settings);
+
+  for (const key of Object.keys(openai)) {
+    if (!(key in wrapper)) {
+      (wrapper as any)[key] = (openai as any)[key];
+    }
+  }
+
+  return wrapper as unknown as ReturnType<typeof createOpenAI>;
 }
+

@@ -5,83 +5,20 @@ SHELL := /usr/bin/env bash
 all: dev
 
 install-deps:
-	@cd frontend && npm install --silent
-	@cd backend && npm install --silent
+	@if command -v npm > /dev/null 2>&1; then \
+		echo "Installing host dependencies..."; \
+		cd frontend && npm install --silent; \
+		cd backend && npm install --silent; \
+	else \
+		echo "npm not found on host. Skipping host dependency installation."; \
+	fi
 
 dev: validate-dev-env install-deps
-	docker compose -f docker-compose.dev.yml up --build -d db convex convex-dashboard
-	@echo "Waiting for Convex..."
-	@for i in $$(seq 1 120); do \
-		if curl -sf http://127.0.0.1:3210/version > /dev/null 2>&1; then break; fi; \
-		if [ $$i -eq 120 ]; then echo "Error: Convex did not start within 120s"; exit 1; fi; \
-		sleep 1; \
-	done
-	@echo "Convex is up."
-	$(MAKE) ensure-admin-key
-	$(MAKE) convex-env
-	$(MAKE) convex-push
-	docker compose -f docker-compose.dev.yml up --build -d
-	@echo ""
-	@echo "BigSet is ready!"
-	@echo "  App:              http://localhost:3500"
-	@echo "  Mastra Studio:    http://localhost:4111"
-	@echo "  Convex Dashboard: http://localhost:6791"
-	@echo ""
+	bash dev.sh
 	docker compose -f docker-compose.dev.yml logs -f
 
 validate-dev-env:
 	@test -f .env || { echo "Error: .env not found. Run: cp .env.example .env"; exit 1; }
-	@missing=""; \
-	check_env() { \
-		key="$$1"; placeholder="$$2"; \
-		value="$$(grep "^$$key=" .env | cut -d= -f2-)"; \
-		if [[ -z "$$value" || "$$value" == "$$placeholder" || "$$value" == *"..."* ]]; then \
-			missing="$$missing $$key"; \
-		fi; \
-	}; \
-	check_env TINYFISH_API_KEY ""; \
-	check_env OPENROUTER_API_KEY sk-or-...; \
-	check_env NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY pk_test_...; \
-	check_env CLERK_SECRET_KEY sk_test_...; \
-	check_env CLERK_JWT_ISSUER_DOMAIN https://your-app.clerk.accounts.dev; \
-	if [[ -n "$$missing" ]]; then \
-		echo ""; \
-		echo "Missing environment variables in .env:"; \
-		echo ""; \
-		for key in $$missing; do \
-			case $$key in \
-				TINYFISH_API_KEY) \
-					echo "  ✗ $$key"; \
-					echo "    → Create account → API Keys → Create Key"; \
-					echo "    https://agent.tinyfish.ai/api-keys?utm_source=github&utm_medium=organic&utm_campaign=bigset-developer-2026q2"; \
-					echo "";; \
-				OPENROUTER_API_KEY) \
-					echo "  ✗ $$key"; \
-					echo "    → Create account → Settings → Keys → Create Key"; \
-					echo "    https://openrouter.ai/settings/keys"; \
-					echo "";; \
-				NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) \
-					echo "  ✗ $$key"; \
-					echo "    → Clerk dashboard → API Keys → Publishable Key"; \
-					echo "    https://dashboard.clerk.com"; \
-					echo "";; \
-				CLERK_SECRET_KEY) \
-					echo "  ✗ $$key"; \
-					echo "    → Clerk dashboard → API Keys → Secret Key"; \
-					echo "    https://dashboard.clerk.com"; \
-					echo "";; \
-				CLERK_JWT_ISSUER_DOMAIN) \
-					echo "  ✗ $$key"; \
-					echo "    → Clerk dashboard → Configure → JWT Templates → enable Convex template"; \
-					echo "    → Then find Issuer URL under Settings (e.g. https://your-app.clerk.accounts.dev)"; \
-					echo "    https://dashboard.clerk.com"; \
-					echo "";; \
-			esac; \
-		done; \
-		echo "Paste your keys into .env, then run make dev again."; \
-		echo ""; \
-		exit 1; \
-	fi
 
 ensure-admin-key:
 	@admin_key="$$(grep '^CONVEX_SELF_HOSTED_ADMIN_KEY=' .env | cut -d= -f2-)"; \
@@ -90,8 +27,8 @@ ensure-admin-key:
 		needs_gen=true; \
 	else \
 		echo "Validating Convex admin key..."; \
-		if ! (cd frontend && node ../scripts/with-root-env.mjs npx convex env list \
-			--url http://127.0.0.1:3210 --admin-key "$$admin_key") > /dev/null 2>&1; then \
+		if ! docker compose -f docker-compose.dev.yml run --rm frontend bunx convex env list \
+			--url http://convex:3210 --admin-key "$$admin_key" > /dev/null 2>&1; then \
 			echo "Admin key is stale (volumes were probably wiped). Regenerating..."; \
 			needs_gen=true; \
 		fi; \
@@ -104,7 +41,11 @@ ensure-admin-key:
 			echo "Error: Failed to generate admin key."; exit 1; \
 		fi; \
 		if grep -q '^CONVEX_SELF_HOSTED_ADMIN_KEY=' .env; then \
-			sed -i.bak "s#^CONVEX_SELF_HOSTED_ADMIN_KEY=.*#CONVEX_SELF_HOSTED_ADMIN_KEY=$$generated#" .env && rm -f .env.bak; \
+			if [[ "$$OSTYPE" == "darwin"* ]]; then \
+				sed -i '' "s#^CONVEX_SELF_HOSTED_ADMIN_KEY=.*#CONVEX_SELF_HOSTED_ADMIN_KEY=$$generated#" .env; \
+			else \
+				sed -i "s#^CONVEX_SELF_HOSTED_ADMIN_KEY=.*#CONVEX_SELF_HOSTED_ADMIN_KEY=$$generated#" .env; \
+			fi; \
 		else \
 			echo "CONVEX_SELF_HOSTED_ADMIN_KEY=$$generated" >> .env; \
 		fi; \
@@ -117,34 +58,39 @@ convex-env:
 	@test -f .env || { echo "Error: .env not found. Run: cp .env.example .env"; exit 1; }
 	@issuer="$$(grep '^CLERK_JWT_ISSUER_DOMAIN=' .env | cut -d= -f2-)"; \
 		admin_key="$$(grep '^CONVEX_SELF_HOSTED_ADMIN_KEY=' .env | cut -d= -f2-)"; \
-		if [[ -z "$$issuer" || "$$issuer" == "https://your-app.clerk.accounts.dev" ]]; then \
-			echo "Error: CLERK_JWT_ISSUER_DOMAIN must be your Clerk issuer URL in root .env"; \
+		if [[ -z "$$issuer" ]]; then \
+			echo "Error: CLERK_JWT_ISSUER_DOMAIN is missing in root .env"; \
 			exit 1; \
 		fi; \
 		if [[ -z "$$admin_key" ]]; then \
 			echo "Error: CONVEX_SELF_HOSTED_ADMIN_KEY is missing in root .env"; \
-			echo "Run make dev to generate it automatically."; \
 			exit 1; \
 		fi; \
-		cd frontend && node ../scripts/with-root-env.mjs npx convex env set CLERK_JWT_ISSUER_DOMAIN "$$issuer" \
-		--url http://127.0.0.1:3210 \
-		--admin-key "$$admin_key"
+		docker compose -f docker-compose.dev.yml run --rm frontend bunx convex env set CLERK_JWT_ISSUER_DOMAIN "$$issuer" \
+			--url http://convex:3210 \
+			--admin-key "$$admin_key"
 
 convex-push:
 	@test -f .env || { echo "Error: .env not found. Run: cp .env.example .env"; exit 1; }
 	@admin_key="$$(grep '^CONVEX_SELF_HOSTED_ADMIN_KEY=' .env | cut -d= -f2-)"; \
 		if [[ -z "$$admin_key" ]]; then \
 			echo "Error: CONVEX_SELF_HOSTED_ADMIN_KEY is missing in root .env"; \
-			echo "Run make dev to generate it automatically."; \
 			exit 1; \
 		fi; \
-		cd frontend && node ../scripts/with-root-env.mjs npx convex deploy \
-		--url http://127.0.0.1:3210 \
-		--admin-key "$$admin_key"
+		docker compose -f docker-compose.dev.yml run --rm frontend bunx convex deploy \
+			--url http://convex:3210 \
+			--admin-key "$$admin_key"
 
 seed-public-datasets:
 	@test -f .env || { echo "Error: .env not found. Run: cp .env.example .env"; exit 1; }
-	@cd frontend && node ../scripts/with-root-env.mjs npx convex run publicSeed:seedPublicDatasets
+	@admin_key="$$(grep '^CONVEX_SELF_HOSTED_ADMIN_KEY=' .env | cut -d= -f2-)"; \
+		if [[ -z "$$admin_key" ]]; then \
+			echo "Error: CONVEX_SELF_HOSTED_ADMIN_KEY is missing in root .env"; \
+			exit 1; \
+		fi; \
+		docker compose -f docker-compose.dev.yml run --rm frontend bunx convex run publicSeed:seedPublicDatasets \
+			--url http://convex:3210 \
+			--admin-key "$$admin_key"
 
 down:
 	docker compose -f docker-compose.dev.yml down
@@ -152,6 +98,10 @@ down:
 clean:
 	docker compose -f docker-compose.dev.yml down -v --rmi local
 	@if [ -f .env ]; then \
-		sed -i.bak 's|^CONVEX_SELF_HOSTED_ADMIN_KEY=.*|CONVEX_SELF_HOSTED_ADMIN_KEY=|' .env && rm -f .env.bak; \
+		if [[ "$$OSTYPE" == "darwin"* ]]; then \
+			sed -i '' 's|^CONVEX_SELF_HOSTED_ADMIN_KEY=.*|CONVEX_SELF_HOSTED_ADMIN_KEY=|' .env; \
+		else \
+			sed -i 's|^CONVEX_SELF_HOSTED_ADMIN_KEY=.*|CONVEX_SELF_HOSTED_ADMIN_KEY=|' .env; \
+		fi; \
 		echo "Cleared CONVEX_SELF_HOSTED_ADMIN_KEY from .env (volumes wiped)."; \
 	fi

@@ -46,7 +46,7 @@ export interface EffectiveModelConfig {
 }
 
 /**
- * User's saved model preferences — stores the canonical slug (e.g. "anthropic/claude-sonnet-4.6")
+ * User's saved model preferences — stores the canonical slug (e.g. "google/gemini-2.5-flash")
  * for each agent role. Null means no preference saved — backend will use the env default.
  */
 export interface SavedModelConfig {
@@ -64,7 +64,7 @@ export interface OpenRouterModel {
 }
 
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3501";
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://13.234.200.90:3501";
 
 /**
  * Fetch the current user's effective (resolved) model config from the backend.

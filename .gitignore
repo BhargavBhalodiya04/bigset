@@ -1,30 +1,69 @@
-.DS_Store
+# ─── Secrets & env files ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Dependencies ────────────────────────────────────────────────────────────
 node_modules/
 .npm-cache/
-.env
-.env.local
-Project_BigSet_brief.md
+.pnp
+.pnp.js
 
-# Editor / IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# ─── Next.js (frontend) ──────────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/.vercel/
 
-# Logs
+# ─── TypeScript build output (backend) ───────────────────────────────────────
+backend/dist/
+
+# ─── Mastra ──────────────────────────────────────────────────────────────────
+.mastra/
+
+# ─── Convex ──────────────────────────────────────────────────────────────────
+convex/_generated/
+.convex/
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
 
-# Local-only files
-*.bak
+# ─── OS / System ─────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ─── Editor / IDE ────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+
+# ─── Docker local artifacts ───────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ─── Temp / scratch ──────────────────────────────────────────────────────────
 tmp/
 temp/
-
-.mastra
-
-# Local tarballs
+*.bak
 *.tgz
 
-# Internal docs
-BigSet Technical Specs & Goals.md
+# ─── Internal / private docs ─────────────────────────────────────────────────
+Project_BigSet_brief.md
+"BigSet Technical Specs & Goals.md"

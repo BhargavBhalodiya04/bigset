@@ -19,7 +19,7 @@ function numberFromEnv(name: string, fallback: number): number {
 }
 
 export const env = {
-  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || "http://localhost:3500",
+  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || "http://13.234.200.90:3500",
   CONVEX_URL: required("CONVEX_URL"),
   PORT: numberFromEnv("PORT", 3501),
 
@@ -35,16 +35,17 @@ export const env = {
     process.env.CLERK_PUBLISHABLE_KEY ??
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
 
-  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
 
   // Default models — used when a user has not saved a preference.
-  // Each must be a valid OpenRouter model slug.
+  // Must be valid model IDs supported by your LLM hub (OPENAI_BASE_URL).
   SCHEMA_INFERENCE_MODEL:
-    process.env.SCHEMA_INFERENCE_MODEL ?? "anthropic/claude-sonnet-4.6",
+    process.env.SCHEMA_INFERENCE_MODEL ?? "gpt-5.2",
   POPULATE_ORCHESTRATOR_MODEL:
-    process.env.POPULATE_ORCHESTRATOR_MODEL ?? "qwen/qwen3.7-max",
+    process.env.POPULATE_ORCHESTRATOR_MODEL ?? "gpt-5.2",
   INVESTIGATE_SUBAGENT_MODEL:
-    process.env.INVESTIGATE_SUBAGENT_MODEL ?? "qwen/qwen3.7-max",
+    process.env.INVESTIGATE_SUBAGENT_MODEL ?? "gpt-5.2",
 
   // Resend (transactional email). Optional — when RESEND_API_KEY is unset
   // the email module no-ops with a log line, so local dev works without

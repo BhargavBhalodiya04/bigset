@@ -1,14 +1,12 @@
 import { Agent } from "@mastra/core/agent";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createLLMProvider } from "../../config/llm-provider.js";
 import { buildSubagentTool } from "../tools/investigate-tool.js";
 import { searchWebTool, fetchPageTool } from "../tools/web-tools.js";
 import type { AuthContext } from "../workflows/populate.js";
 import type { PopulateColumn } from "../../pipeline/populate.js";
 import type { RunMetrics } from "../run-metrics.js";
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY!,
-});
+const llmProvider = createLLMProvider();
 
 function buildInstructions(maxRowCount: number): string {
   return `You are an expert dataset builder. You conduct research using your web tools.
@@ -53,7 +51,7 @@ export function buildPopulateAgent(
     id: "populate-agent",
     name: "Dataset Populate Orchestrator",
     instructions: buildInstructions(maxRowCount),
-    model: openrouter(modelSlug),
+    model: llmProvider(modelSlug),
     tools: {
       search_web: searchWebTool,
       fetch_page: fetchPageTool,

@@ -1,13 +1,11 @@
 import { Agent } from "@mastra/core/agent";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createLLMProvider } from "../../config/llm-provider.js";
 import { buildPopulateTools } from "../tools/dataset-tools.js";
 import { searchWebTool, fetchPageTool } from "../tools/web-tools.js";
 import type { AuthContext } from "../workflows/populate.js";
 import type { PopulateColumn } from "../../pipeline/populate.js";
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY!,
-});
+const llmProvider = createLLMProvider();
 
 function buildInvestigateInstructions(columns: PopulateColumn[]): string {
   const columnNames = columns.map((c) => c.name);
@@ -70,7 +68,7 @@ export function buildInvestigateAgent(
     id: "investigate-agent",
     name: "Dataset Investigate Agent",
     instructions: buildInvestigateInstructions(columns),
-    model: openrouter(modelSlug),
+    model: llmProvider(modelSlug),
 
     tools: {
       insert_row,

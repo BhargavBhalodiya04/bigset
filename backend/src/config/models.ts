@@ -1,19 +1,22 @@
 /**
  * Backend configuration for AI models.
  *
- * Defines the typed interfaces and constants for OpenRouter model management.
+ * Defines the typed interfaces and constants for LLM hub model management.
  */
 
 import { api, internal, convex } from "../convex.js";
 import { env } from "../env.js";
 
-export interface OpenRouterModel {
+export interface LLMModel {
   modelName: string;
   canonicalSlug: string;
   contextLength: number;
   completionCost: number;
   promptCost: number;
 }
+
+// Keep the OpenRouterModel alias for backward compatibility with Convex schema and frontend types
+export type OpenRouterModel = LLMModel;
 
 /**
  * Default model slugs for each agent role.
@@ -71,7 +74,7 @@ export async function validateModelSlug(
   if (!found) {
     throw new Error(
       `Invalid model slug "${slug}" for ${role}. ` +
-        `Available models: ${models.map((m) => m.canonicalSlug).join(", ") || "none (run /openrouter/refresh first)"}`
+        `Available models: ${models.map((m) => m.canonicalSlug).join(", ") || "none (run /models/refresh first)"}`
     );
   }
 }
@@ -126,49 +129,31 @@ export async function getModelConfig(
 }
 
 /**
- * Fetch models from OpenRouter REST API and return parsed models ready
- * for Convex storage.
+ * Returns the list of available models from the custom LLM hub.
+ *
+ * Since our LLM hub does not expose a /models listing endpoint we
+ * build the list from the env-configured default slugs. If you add
+ * more models to your hub, add their slugs to the EXTRA_MODEL_SLUGS
+ * array below.
  */
+const EXTRA_MODEL_SLUGS: string[] = [];
+
 export async function fetchModelsFromOpenRouter(): Promise<OpenRouterModel[]> {
-  const apiKey = env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not set");
-  }
+  const defaultSlugs = [
+    env.SCHEMA_INFERENCE_MODEL,
+    env.POPULATE_ORCHESTRATOR_MODEL,
+    env.INVESTIGATE_SUBAGENT_MODEL,
+    ...EXTRA_MODEL_SLUGS,
+  ].filter(Boolean) as string[];
 
-  // Only text-based models that support tools
-  const response = await fetch(
-    "https://openrouter.ai/api/v1/models?output_modalities=text&supported_parameters=tools",
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    }
-  );
+  // Deduplicate
+  const unique = [...new Set(defaultSlugs)];
 
-  if (!response.ok) {
-    throw new Error(`OpenRouter API failed: ${response.status} ${response.statusText}`);
-  }
-
-  const json = (await response.json()) as {
-    data: Array<{
-      id: string;
-      name: string;
-      context_length: number;
-      pricing?: { completion?: string; prompt?: string };
-    }>;
-  };
-
-  // Filter excluded and map to OpenRouterModel
-  // Prices from OpenRouter are per-token; multiply by 1M for per-million
-  const models = json.data
-    .filter((m) => !EXCLUDED_MODEL_SLUGS.includes(m.id))
-    .map((model) => ({
-      modelName: model.name,
-      canonicalSlug: model.id,
-      contextLength: model.context_length ?? 0,
-      promptCost: parseFloat(model.pricing?.prompt ?? "0") * 1_000_000,
-      completionCost: parseFloat(model.pricing?.completion ?? "0") * 1_000_000,
-    }));
-
-  return models;
+  return unique.map((slug) => ({
+    modelName: slug,
+    canonicalSlug: slug,
+    contextLength: 0,
+    promptCost: 0,
+    completionCost: 0,
+  }));
 }

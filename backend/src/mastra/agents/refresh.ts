@@ -1,13 +1,11 @@
 import { Agent } from "@mastra/core/agent";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createLLMProvider } from "../../config/llm-provider.js";
 import { buildPopulateTools } from "../tools/dataset-tools.js";
 import { searchWebTool, fetchPageTool } from "../tools/web-tools.js";
 import type { AuthContext } from "../workflows/populate.js";
 import type { PopulateColumn } from "../../pipeline/populate.js";
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY!,
-});
+const llmProvider = createLLMProvider();
 
 function buildRefreshInstructions(columns: PopulateColumn[]): string {
   const columnNames = columns.map((c) => c.name);
@@ -56,6 +54,7 @@ export function buildRefreshAgent(
   authContext: AuthContext,
   columns: PopulateColumn[],
 ): Agent {
+  const modelSlug = authContext.modelConfig!.investigateSubagent;
   const { update_row } = buildPopulateTools(
     authorizedDatasetId,
     authContext,
@@ -64,7 +63,7 @@ export function buildRefreshAgent(
     id: "refresh-agent",
     name: "Dataset Refresh Agent",
     instructions: buildRefreshInstructions(columns),
-    model: openrouter("qwen/qwen3.7-max"),
+    model: llmProvider(modelSlug),
     tools: {
       update_row,
       search_web: searchWebTool,

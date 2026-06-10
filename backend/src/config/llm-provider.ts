@@ -35,10 +35,33 @@ export function createLLMProvider() {
 
   const baseURL = normalizeBaseUrl(rawBase);
 
+  const customFetch = async (url: string, init?: RequestInit) => {
+    // Intercept and normalize POST request payloads going to the LLM hub
+    if (init && init.method === "POST" && init.body && typeof init.body === "string") {
+      try {
+        const body = JSON.parse(init.body);
+        if (body && Array.isArray(body.messages)) {
+          for (const msg of body.messages) {
+            // Replace any content: null with an empty string to satisfy custom LLM gateway Zod schema
+            if (msg.content === null) {
+              msg.content = "";
+            }
+          }
+          init.body = JSON.stringify(body);
+        }
+      } catch (e) {
+        // Skip normalization on malformed JSON
+      }
+    }
+    return fetch(url, init);
+  };
+
   const openai = createOpenAI({
     apiKey,
     baseURL,
+    fetch: customFetch as any,
   });
+
 
   // Force chat completions API (/v1/chat/completions) by default
   // instead of the new responses API (/v1/responses) which custom
